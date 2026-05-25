@@ -106,7 +106,10 @@ func runAuth(ctx context.Context, cmd *cli.Command) error {
 
 	ref := fmt.Sprintf("ghcr.io/%s/enbu-recipients:%s", cfg.Owner, user.Login)
 	fmt.Printf("Pushing public key to %s...\n", ref)
-	if err := oci.Push(ctx, ref, "application/vnd.enbu.recipient.age.v1", []byte(kp.PublicKey), tokenResp.AccessToken); err != nil {
+	pushOpts := &oci.PushOptions{
+		SourceRepo: fmt.Sprintf("https://github.com/%s/%s", cfg.Owner, cfg.Repo),
+	}
+	if err := oci.Push(ctx, ref, "application/vnd.enbu.recipient.age.v1", []byte(kp.PublicKey), tokenResp.AccessToken, pushOpts); err != nil {
 		return fmt.Errorf("pushing public key to GHCR: %w", err)
 	}
 

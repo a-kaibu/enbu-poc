@@ -15,7 +15,11 @@ import (
 
 const emptyConfigJSON = "{}"
 
-func Push(ctx context.Context, ref string, mediaType string, data []byte, token string) error {
+type PushOptions struct {
+	SourceRepo string // e.g. "https://github.com/a-kaibu/enbu-poc"
+}
+
+func Push(ctx context.Context, ref string, mediaType string, data []byte, token string, opts *PushOptions) error {
 	repo, err := remote.NewRepository(ref)
 	if err != nil {
 		return fmt.Errorf("parsing reference %q: %w", ref, err)
@@ -40,11 +44,17 @@ func Push(ctx context.Context, ref string, mediaType string, data []byte, token 
 		return fmt.Errorf("storing config: %w", err)
 	}
 
+	annotations := map[string]string{}
+	if opts != nil && opts.SourceRepo != "" {
+		annotations["org.opencontainers.image.source"] = opts.SourceRepo
+	}
+
 	manifest := ocispec.Manifest{
-		Versioned: specs.Versioned{SchemaVersion: 2},
-		MediaType: ocispec.MediaTypeImageManifest,
-		Config:    configDesc,
-		Layers:    []ocispec.Descriptor{layerDesc},
+		Versioned:   specs.Versioned{SchemaVersion: 2},
+		MediaType:   ocispec.MediaTypeImageManifest,
+		Config:      configDesc,
+		Layers:      []ocispec.Descriptor{layerDesc},
+		Annotations: annotations,
 	}
 
 	manifestJSON, err := json.Marshal(manifest)

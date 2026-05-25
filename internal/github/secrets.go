@@ -98,6 +98,9 @@ func (c *Client) GetSecret(ctx context.Context, owner, repo, name string) (strin
 }
 
 func (c *Client) DispatchWorkflow(ctx context.Context, owner, repo, eventType string, payload map[string]string) error {
+	if payload == nil {
+		payload = make(map[string]string)
+	}
 	body, err := json.Marshal(map[string]any{
 		"event_type":     eventType,
 		"client_payload": payload,

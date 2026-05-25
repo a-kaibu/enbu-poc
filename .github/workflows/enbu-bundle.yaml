@@ -42,17 +42,18 @@ jobs:
 
       - name: Pull recipient public keys
         run: |
-          mkdir -p /tmp/recipients
           TAGS=$(oras repo tags "ghcr.io/${OWNER}/enbu-recipients" 2>/dev/null || echo "")
           if [ -z "$TAGS" ]; then
             echo "No recipients found"
             exit 1
           fi
+          > /tmp/all-recipients.txt
           for TAG in $TAGS; do
             echo "Pulling key for ${TAG}..."
-            oras pull "ghcr.io/${OWNER}/enbu-recipients:${TAG}" -o "/tmp/recipients/${TAG}/"
+            DIGEST=$(oras manifest fetch "ghcr.io/${OWNER}/enbu-recipients:${TAG}" | jq -r '.layers[0].digest')
+            oras blob fetch --output - "ghcr.io/${OWNER}/enbu-recipients@${DIGEST}" >> /tmp/all-recipients.txt
+            echo "" >> /tmp/all-recipients.txt
           done
-          find /tmp/recipients -type f -exec cat {} \; > /tmp/all-recipients.txt
           echo "Recipients:"
           cat /tmp/all-recipients.txt
 
