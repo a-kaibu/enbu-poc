@@ -73,7 +73,8 @@ jobs:
         env:
           ENV_TAG: ${{ github.event.inputs.environment || 'default' }}
         run: |
+          cd /tmp
           oras push "ghcr.io/${OWNER}/enbu-bundle:${ENV_TAG}" \
-            /tmp/bundle.age:application/vnd.enbu.bundle.age.v1 \
-            /tmp/bundle.cosign:application/vnd.enbu.bundle.cosign.v1
+            bundle.age:application/vnd.enbu.bundle.age.v1 \
+            bundle.cosign:application/vnd.enbu.bundle.cosign.v1
           echo "Pushed bundle to ghcr.io/${OWNER}/enbu-bundle:${ENV_TAG}"
