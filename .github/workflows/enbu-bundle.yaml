@@ -1,0 +1,78 @@
+name: Build Encrypted Env Bundle
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        default: "default"
+  repository_dispatch:
+    types: [enbu-secrets-updated]
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+  build-bundle:
+    runs-on: ubuntu-latest
+    env:
+      OWNER: ${{ github.repository_owner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install age
+        run: |
+          curl -sLO https://github.com/FiloSottile/age/releases/download/v1.2.0/age-v1.2.0-linux-amd64.tar.gz
+          tar xzf age-v1.2.0-linux-amd64.tar.gz
+          sudo mv age/age age/age-keygen /usr/local/bin/
+
+      - name: Install ORAS
+        run: |
+          curl -sLO https://github.com/oras-project/oras/releases/download/v1.2.2/oras_1.2.2_linux_amd64.tar.gz
+          tar xzf oras_1.2.2_linux_amd64.tar.gz
+          sudo mv oras /usr/local/bin/
+
+      - name: Login to GHCR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_ACTOR: ${{ github.actor }}
+        run: echo "${GH_TOKEN}" | oras login ghcr.io -u "${GH_ACTOR}" --password-stdin
+
+      - name: Pull recipient public keys
+        run: |
+          mkdir -p /tmp/recipients
+          TAGS=$(oras repo tags "ghcr.io/${OWNER}/enbu-recipients" 2>/dev/null || echo "")
+          if [ -z "$TAGS" ]; then
+            echo "No recipients found"
+            exit 1
+          fi
+          for TAG in $TAGS; do
+            echo "Pulling key for ${TAG}..."
+            oras pull "ghcr.io/${OWNER}/enbu-recipients:${TAG}" -o "/tmp/recipients/${TAG}/"
+          done
+          find /tmp/recipients -type f -exec cat {} \; > /tmp/all-recipients.txt
+          echo "Recipients:"
+          cat /tmp/all-recipients.txt
+
+      - name: Build and encrypt bundle
+        env:
+          ENBU_BUNDLE: ${{ secrets.ENBU_BUNDLE }}
+        run: |
+          echo "${ENBU_BUNDLE}" | age -R /tmp/all-recipients.txt -o /tmp/bundle.age
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign bundle (keyless)
+        run: cosign sign-blob --yes --bundle /tmp/bundle.cosign /tmp/bundle.age
+
+      - name: Push encrypted bundle to GHCR
+        env:
+          ENV_TAG: ${{ github.event.inputs.environment || 'default' }}
+        run: |
+          oras push "ghcr.io/${OWNER}/enbu-bundle:${ENV_TAG}" \
+            /tmp/bundle.age:application/vnd.enbu.bundle.age.v1 \
+            /tmp/bundle.cosign:application/vnd.enbu.bundle.cosign.v1
+          echo "Pushed bundle to ghcr.io/${OWNER}/enbu-bundle:${ENV_TAG}"
