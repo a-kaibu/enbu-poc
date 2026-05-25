@@ -15,7 +15,7 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-const defaultClientID = "REPLACE_WITH_YOUR_OAUTH_APP_CLIENT_ID"
+const defaultClientID = "Ov23li6nFmfdF4FW9ikd"
 
 func newAuthCommand() *cli.Command {
 	return &cli.Command{
@@ -35,7 +35,7 @@ func newAuthCommand() *cli.Command {
 
 func runAuth(ctx context.Context, cmd *cli.Command) error {
 	clientID := cmd.String("client-id")
-	if clientID == defaultClientID {
+	if clientID == "" {
 		return fmt.Errorf("set ENBU_CLIENT_ID or --client-id flag with your GitHub OAuth App client ID")
 	}
 
