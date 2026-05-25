@@ -118,6 +118,66 @@ oras push "ghcr.io/<org>/enbu-bundle:default" \
 
 **解決策**: 全 key-value を JSON 化して単一シークレット `ENBU_BUNDLE` に格納。ワークフローは `${{ secrets.ENBU_BUNDLE }}` だけ参照すればよい。
 
+## GHCR パッケージを private のまま運用する方法
+
+POC では public に変更して動作確認したが、本番では private のまま運用可能。
+
+### GITHUB_TOKEN が private パッケージにアクセスする条件
+
+`GITHUB_TOKEN` は以下の条件を満たすと private パッケージにアクセスできる：
+
+1. **パッケージがリポジトリにリンクされている**
+2. **ワークフローに `packages: read`（または `write`）権限がある**
+
+リンクさえされていれば、同じリポジトリのワークフローから `GITHUB_TOKEN` で読み書きできる。
+
+### リンク方法（3パターン）
+
+| 方法 | 対象パッケージ | 自動/手動 |
+|------|--------------|-----------|
+| ワークフローから GITHUB_TOKEN で初回 push | `enbu-bundle` | 自動 |
+| OCI アノテーション `org.opencontainers.image.source` 付きで push | `enbu-recipients` | 自動 |
+| GitHub UI で "Manage Actions access" → "Add Repository" | 両方 | 手動 |
+
+### enbu-recipients（ユーザーが push）の場合
+
+ユーザーの OAuth トークンで push するため、GITHUB_TOKEN による自動リンクが効かない。
+以下のいずれかで対応：
+
+**方法 A: OCI アノテーション（コード側で対応済み）**
+
+`internal/oci/push.go` で `org.opencontainers.image.source` を manifest に付与している。
+これにより push 時に GitHub が自動でリポジトリリンクを作成する。
+
+```go
+annotations["org.opencontainers.image.source"] = "https://github.com/a-kaibu/enbu-poc"
+```
+
+**方法 B: 手動設定（UI）**
+
+1. https://github.com/orgs/a-kaibu/packages/container/enbu-recipients/settings
+2. "Manage Actions access" → "Add Repository" → `enbu-poc` を追加（Read 権限）
+
+### enbu-bundle（CI が push）の場合
+
+ワークフローから `GITHUB_TOKEN` で初回 push すると自動でリポジトリにリンクされる。
+`permissions: packages: write` が設定済みなのでそのまま動く。
+
+### 手順まとめ（private 運用）
+
+1. `enbu auth` を実行（OCI アノテーション付きで push される）
+2. GitHub UI でパッケージ設定を確認:
+   - `enbu-recipients`: "Manage Actions access" で `enbu-poc` に Read 付与
+   - `enbu-bundle`: 初回 CI push で自動リンク（設定不要）
+3. 両パッケージの visibility は private のまま
+4. `enbu pull` はユーザーの OAuth トークンで認証するので private でも問題なし
+
+### 注意点
+
+- Fine-grained PAT は Packages API 未対応（classic PAT が必要）
+- org 設定で "Allow GitHub Actions to create and approve pull requests" が有効な必要がある場合あり
+- パッケージを別リポジトリのワークフローからも読みたい場合は、明示的に "Add Repository" が必要
+
 ## POC の制約
 
 - トークンリフレッシュ未実装
