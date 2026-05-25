@@ -8,7 +8,7 @@ import (
 	"net/http"
 )
 
-const apiBaseURL = "https://api.github.com"
+var apiBaseURL = "https://api.github.com"
 
 type Client struct {
 	token      string

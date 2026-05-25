@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const (
+var (
 	githubDeviceCodeURL = "https://github.com/login/device/code"
 	githubTokenURL      = "https://github.com/login/oauth/access_token"
 )
