@@ -14,6 +14,7 @@ import (
 func newAddCommand() *cli.Command {
 	return &cli.Command{
 		Name:      "add",
+		Aliases:   []string{"push"},
 		Usage:     "Add a secret to the repository",
 		ArgsUsage: "KEY VALUE",
 		Action:    runAdd,
