@@ -11,6 +11,7 @@ func New(version string) *cli.Command {
 		Version: version,
 		Commands: []*cli.Command{
 			newAuthCommand(),
+			newInitCommand(),
 			newAddCommand(),
 			newPullCommand(),
 		},
